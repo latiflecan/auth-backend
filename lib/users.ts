@@ -5,7 +5,7 @@ export type User = {
     password: string;
   };
   
-  let users: User[] = [];
+  const users: User[] = [];
   
   export function registerUser(email: string, password: string): boolean {
     const exists = users.find((u) => u.email === email);
