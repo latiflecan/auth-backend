@@ -1,62 +1,61 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { IncomingForm, File } from 'formidable';
 import fs from 'fs';
 import path from 'path';
-import formidable, { File } from 'formidable';
 import { v4 as uuidv4 } from 'uuid';
 
-// 🔒 Désactive le bodyParser de Next.js pour permettre à formidable de fonctionner
+// Désactiver le parsing automatique de Next.js
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// 📁 Assure-toi que le dossier /public/uploads existe
-const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+const handler = (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Méthode non autorisée' });
   }
 
-  const form = formidable({ multiples: false, uploadDir: uploadsDir, keepExtensions: true });
+  const form = new IncomingForm();
+  const uploadDir = path.join(process.cwd(), '/public/uploads');
 
-  form.parse(req, (err, fields, files) => {
-    if (err || !files.audio) {
-      console.error('Erreur de parsing:', err);
-      return res.status(500).json({ message: 'Erreur lors de l’envoi du fichier audio.' });
+  form.uploadDir = uploadDir;
+  form.keepExtensions = true;
+
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur lors du traitement du fichier audio' });
     }
 
-    const audioFile = files.audio as File;
-    const filename = `${uuidv4()}.m4a`;
-    const newPath = path.join(uploadsDir, filename);
+    const file = Array.isArray(files.audio) ? files.audio[0] : files.audio;
 
-    fs.rename(audioFile.filepath, newPath, (renameErr) => {
-      if (renameErr) {
-        console.error('Erreur de renommage:', renameErr);
-        return res.status(500).json({ message: 'Erreur de traitement du fichier.' });
-      }
+    if (!file || !file.filepath) {
+      return res.status(400).json({ message: 'Fichier audio manquant ou invalide' });
+    }
 
-      const message = {
-        id: uuidv4(),
-        audioUrl: `/uploads/${filename}`,
-        createdAt: new Date().toISOString(),
+    const audioId = uuidv4();
+    const newFilename = `${audioId}.mp3`;
+    const newPath = path.join(uploadDir, newFilename);
+
+    fs.renameSync(file.filepath, newPath);
+
+    const audioUrl = `/uploads/${newFilename}`;
+    const createdAt = new Date().toISOString();
+
+    res.status(201).json({
+      message: 'Fichier audio reçu avec succès',
+      data: {
+        id: audioId,
+        audioUrl,
+        createdAt,
         type: 'audio',
-      };
-
-      // Stockage local temporaire
-      const dbPath = path.join(process.cwd(), 'data', 'messages.json');
-      const messages = fs.existsSync(dbPath)
-        ? JSON.parse(fs.readFileSync(dbPath, 'utf8'))
-        : [];
-
-      messages.unshift(message);
-      fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2));
-
-      res.status(201).json({ message: 'Audio envoyé avec succès', data: message });
+      },
     });
   });
-}
+};
+
+export default handler;
