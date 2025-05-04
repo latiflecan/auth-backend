@@ -1,28 +1,40 @@
+// pages/api/messages/audio.ts
+
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { IncomingForm, File as FormidableFile } from 'formidable';
+import formidable, { File } from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
+// Désactiver le body parser intégré de Next.js pour cette route
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-const handler = (req: NextApiRequest, res: NextApiResponse) => {
+// Définir les types de la réponse
+type Data =
+  | { message: string; audioUrl?: string }
+  | { message: string };
+
+// Gestionnaire de la requête POST
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>
+) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Méthode non autorisée' });
   }
 
-  const form = new IncomingForm();
-  const uploadDir = path.join(process.cwd(), '/public/uploads');
+  const form = formidable({
+    keepExtensions: true,
+    uploadDir: path.join(process.cwd(), '/public/uploads'),
+  });
 
-  form.uploadDir = uploadDir;
-  form.keepExtensions = true;
-
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+  // Crée le dossier s'il n'existe pas
+  if (!fs.existsSync(form.uploadDir)) {
+    fs.mkdirSync(form.uploadDir, { recursive: true });
   }
 
   form.parse(req, async (err, fields, files) => {
@@ -30,32 +42,19 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(500).json({ message: 'Erreur lors du traitement du fichier audio' });
     }
 
-    const fileField = files.audio;
-    const file: FormidableFile | undefined = Array.isArray(fileField) ? fileField[0] : fileField;
+    const audioFile = files.audio as File | File[] | undefined;
 
-    if (!file || !file.filepath) {
-      return res.status(400).json({ message: 'Fichier audio manquant ou invalide' });
+    if (!audioFile) {
+      return res.status(400).json({ message: 'Aucun fichier audio fourni' });
     }
 
+    const file = Array.isArray(audioFile) ? audioFile[0] : audioFile;
     const audioId = uuidv4();
-    const newFilename = `${audioId}.mp3`;
-    const newPath = path.join(uploadDir, newFilename);
+    const audioUrl = `/uploads/${path.basename(file.filepath)}`;
 
-    fs.renameSync(file.filepath, newPath);
-
-    const audioUrl = `/uploads/${newFilename}`;
-    const createdAt = new Date().toISOString();
-
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Fichier audio reçu avec succès',
-      data: {
-        id: audioId,
-        audioUrl,
-        createdAt,
-        type: 'audio',
-      },
+      audioUrl,
     });
   });
-};
-
-export default handler;
+}
