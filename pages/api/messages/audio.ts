@@ -1,10 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { IncomingForm, File } from 'formidable';
+import { IncomingForm, File as FormidableFile } from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-// Désactiver le parsing automatique de Next.js
 export const config = {
   api: {
     bodyParser: false,
@@ -31,7 +30,8 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(500).json({ message: 'Erreur lors du traitement du fichier audio' });
     }
 
-    const file = Array.isArray(files.audio) ? files.audio[0] : files.audio;
+    const fileField = files.audio;
+    const file: FormidableFile | undefined = Array.isArray(fileField) ? fileField[0] : fileField;
 
     if (!file || !file.filepath) {
       return res.status(400).json({ message: 'Fichier audio manquant ou invalide' });
