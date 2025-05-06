@@ -1,195 +1,153 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  PermissionsAndroid,
-  Platform,
-  Alert,
-} from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, TextInput, Button, FlatList, Text, StyleSheet, PermissionsAndroid, Platform } from 'react-native';
+import firestore from '@react-native-firebase/firestore';
 import { Audio } from 'expo-av';
-import { styles } from '../styles/chatStyles';
-import { API_URL } from '../config';
+import uuid from 'react-native-uuid';
 
-type ChatMessage = {
+interface Message {
   id: string;
   text?: string;
   audioUrl?: string;
-  createdAt: string;
+  createdAt: Date;
   type: 'text' | 'audio';
-};
+}
 
-const ChatScreen = () => {
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export default function ChatScreen() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
-  const requestMicroPermission = async () => {
+  useEffect(() => {
+    const unsubscribe = firestore()
+      .collection('messages')
+      .orderBy('createdAt', 'desc')
+      .onSnapshot(snapshot => {
+        const fetchedMessages = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date()
+        })) as Message[];
+        setMessages(fetchedMessages);
+      });
+
+    return () => unsubscribe();
+  }, []);
+
+  const sendMessage = async () => {
+    if (inputText.trim()) {
+      await firestore().collection('messages').add({
+        text: inputText,
+        createdAt: new Date(),
+        type: 'text'
+      });
+      setInputText('');
+    }
+  };
+
+  const askMicroPermission = async () => {
     if (Platform.OS === 'android') {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         {
           title: 'Permission Microphone',
-          message: 'Cette app a besoin de votre micro pour enregistrer des messages vocaux.',
+          message: 'L’application a besoin de votre permission pour enregistrer de l’audio',
           buttonNeutral: 'Plus tard',
-          buttonNegative: 'Refuser',
-          buttonPositive: 'Accepter',
+          buttonNegative: 'Annuler',
+          buttonPositive: 'OK'
         }
       );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        Alert.alert('Permission refusée', 'Impossible d’utiliser le micro.');
-      }
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
     }
+    return true;
   };
 
-  useEffect(() => {
-    requestMicroPermission();
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchMessages = async () => {
-    try {
-      const response = await fetch(`${API_URL}/messages`);
-      const data = await response.json();
-      if (response.ok) {
-        setMessages(data.messages);
-      }
-    } catch (error) {
-      console.error('Erreur réseau :', error);
-    }
-  };
-
-  const handleSend = async () => {
-    if (message.trim() === '') return;
+  const startRecording = async () => {
+    const hasPermission = await askMicroPermission();
+    if (!hasPermission) return;
 
     try {
-      const response = await fetch(`${API_URL}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: message, type: 'text' }),
-      });
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
-      if (response.ok) {
-        setMessage('');
-        fetchMessages();
-      } else {
-        Alert.alert('Erreur', 'Impossible d’envoyer le message');
-      }
-    } catch (error) {
-      Alert.alert('Erreur réseau', 'Impossible de joindre le serveur');
-    }
-  };
-
-  const handleRecord = async () => {
-    try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('Permission refusée');
-        return;
-      }
-
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      const { recording } = await Audio.Recording.createAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
       setRecording(recording);
+      setIsRecording(true);
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible de démarrer l’enregistrement.');
+      console.error('Erreur en démarrant l’enregistrement', err);
     }
   };
 
-  const handleStopRecording = async () => {
+  const stopRecording = async () => {
     if (!recording) return;
+    setIsRecording(false);
 
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
+      const id = uuid.v4().toString();
 
-      const formData = new FormData();
-      formData.append('audio', {
-        uri,
-        name: 'audioMessage.m4a',
-        type: 'audio/m4a',
-      } as any);
-      formData.append('type', 'audio');
-
-      const response = await fetch(`${API_URL}/messages/audio`, {
-        method: 'POST',
-        body: formData,
+      await firestore().collection('messages').add({
+        audioUrl: uri,
+        createdAt: new Date(),
+        type: 'audio'
       });
-
-      if (response.ok) {
-        fetchMessages();
-      } else {
-        Alert.alert('Erreur', 'Envoi audio échoué.');
-      }
 
       setRecording(null);
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible d’arrêter l’enregistrement.');
+      console.error('Erreur à l’arrêt de l’enregistrement', err);
     }
   };
-
-  const playAudio = async (uri: string) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri });
-      setSound(newSound);
-      await newSound.playAsync();
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible de lire l’audio.');
-    }
-  };
-
-  const renderItem = ({ item }: { item: ChatMessage }) => (
-    <View style={styles.message}>
-      {item.type === 'text' ? (
-        <Text>{item.text}</Text>
-      ) : (
-        <TouchableOpacity onPress={() => playAudio(item.audioUrl!)}>
-          <Text style={styles.audioText}>🔊 Écouter le message vocal</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
 
   return (
     <View style={styles.container}>
       <FlatList
         data={messages}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
         inverted
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.message}>
+            {item.type === 'text' ? (
+              <Text>{item.text}</Text>
+            ) : (
+              <Text style={styles.audioText}>🎵 Audio message</Text>
+            )}
+          </View>
+        )}
       />
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          placeholder="Votre message"
-          value={message}
-          onChangeText={setMessage}
-          style={styles.input}
-        />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Text style={styles.buttonText}>📨 Envoyer</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        onPress={recording ? handleStopRecording : handleRecord}
-        style={styles.recordButton}
-      >
-        <Text style={styles.buttonText}>
-          {recording ? '⏹️ Stop' : '🎤 Enregistrer'}
-        </Text>
-      </TouchableOpacity>
+      <TextInput
+        style={styles.input}
+        placeholder="Tapez un message"
+        value={inputText}
+        onChangeText={setInputText}
+      />
+      <Button title="Envoyer" onPress={sendMessage} />
+      <Button title={isRecording ? 'Arrêter' : 'Enregistrer Audio'} onPress={isRecording ? stopRecording : startRecording} />
     </View>
   );
-};
+}
 
-export default ChatScreen;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: '#fff'
+  },
+  message: {
+    padding: 10,
+    marginVertical: 5,
+    backgroundColor: '#f1f1f1',
+    borderRadius: 5
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 8,
+    marginVertical: 10,
+    borderRadius: 4
+  },
+  audioText: {
+    color: '#007AFF',
+    fontWeight: 'bold'
+  }
+});
