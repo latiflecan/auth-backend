@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "177937839314",
+    "project_id": "tiflowapp",
+    "storage_bucket": "tiflowapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:177937839314:android:e959c4d0358fef6433290b",
+        "android_client_info": {
+          "package_name": "com.tiflowapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9dl1Ct0Gau_BgwZKeg0gZjRU-geyxe-o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
