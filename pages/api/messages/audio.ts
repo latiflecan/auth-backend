@@ -1,60 +1,48 @@
-// pages/api/messages/audio.ts
-
 import type { NextApiRequest, NextApiResponse } from 'next';
-import formidable, { File } from 'formidable';
-import fs from 'fs';
+import formidable from 'formidable';
+import fs from 'fs-extra';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
-// Désactiver le body parser intégré de Next.js pour cette route
 export const config = {
   api: {
-    bodyParser: false,
-  },
+    bodyParser: false
+  }
 };
 
-// Définir les types de la réponse
-type Data =
-  | { message: string; audioUrl?: string }
-  | { message: string };
+const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+const messagesFile = path.join(process.cwd(), 'data', 'messages.json');
 
-// Gestionnaire de la requête POST
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Méthode non autorisée' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const form = formidable({
-    keepExtensions: true,
-    uploadDir: path.join(process.cwd(), '/public/uploads'),
-  });
+  await fs.ensureDir(uploadDir);
 
-  // Crée le dossier s'il n'existe pas
-  if (!fs.existsSync(form.uploadDir)) {
-    fs.mkdirSync(form.uploadDir, { recursive: true });
-  }
+  const form = formidable({ uploadDir, keepExtensions: true });
 
   form.parse(req, async (err, fields, files) => {
-    if (err) {
-      return res.status(500).json({ message: 'Erreur lors du traitement du fichier audio' });
-    }
+    if (err) return res.status(500).json({ error: 'Upload failed' });
 
-    const audioFile = files.audio as File | File[] | undefined;
+    const audio = files.audio?.[0];
+    const sender = fields.sender?.[0];
 
-    if (!audioFile) {
-      return res.status(400).json({ message: 'Aucun fichier audio fourni' });
-    }
+    if (!audio || !sender) return res.status(400).json({ error: 'Missing audio or sender' });
 
-    const file = Array.isArray(audioFile) ? audioFile[0] : audioFile;
-    const audioId = uuidv4();
-    const audioUrl = `/uploads/${path.basename(file.filepath)}`;
+    const audioPath = path.basename(audio.filepath);
 
-    return res.status(201).json({
-      message: 'Fichier audio reçu avec succès',
-      audioUrl,
-    });
+    const newMessage = {
+      id: Date.now(),
+      sender,
+      audio: `/uploads/${audioPath}`,
+      timestamp: new Date().toISOString(),
+      type: 'audio'
+    };
+
+    const messages = await fs.readJSON(messagesFile).catch(() => []);
+    messages.push(newMessage);
+    await fs.writeJSON(messagesFile, messages, { spaces: 2 });
+
+    res.status(200).json({ success: true, message: newMessage });
   });
 }

@@ -1,4 +1,29 @@
 {
-  "name": "TiflowApp",
-  "displayName": "TiflowApp"
+  "expo": {
+    "name": "TiflowApp",
+    "slug": "TiflowApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/tiflow-logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/tiflow-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/tiflow-logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "web": {
+      "favicon": "./assets/tiflow-logo.png"
+    }
+  }
 }

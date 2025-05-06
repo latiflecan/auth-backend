@@ -1,122 +1,43 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { API_URL } from '../config';
+import { View, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { API_URL } from '../config/api';
 
-const LoginScreen = () => {
-  const navigation = useNavigation<any>();
+const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
-      return;
-    }
-
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const res = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Erreur de connexion', data.message);
-        return;
+      const data = await res.json();
+      if (res.ok) {
+        navigation.navigate('Home', { user: email });
+      } else {
+        Alert.alert('Erreur', data.error || 'Connexion échouée');
       }
-
-      Alert.alert('Succès', data.message);
-      navigation.navigate('Home');
-    } catch (error: any) {
-      console.error('❌ Erreur réseau :', error.message);
-      Alert.alert('Erreur réseau', 'Impossible de se connecter au serveur.');
+    } catch (error) {
+      Alert.alert('Erreur', 'Serveur inaccessible');
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Connexion</Text>
-
-      <TextInput
-        placeholder="Adresse email"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-
-      <TextInput
-        placeholder="Mot de passe"
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-        <Text style={styles.linkText}>Mot de passe oublié ?</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Se connecter</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.linkText}>Créer un compte</Text>
-      </TouchableOpacity>
+      <TextInput style={styles.input} placeholder="Email" onChangeText={setEmail} value={email} />
+      <TextInput style={styles.input} placeholder="Mot de passe" secureTextEntry onChangeText={setPassword} value={password} />
+      <Button title="Connexion" onPress={handleLogin} />
+      <Button title="Mot de passe oublié ?" onPress={() => navigation.navigate('ForgotPassword')} />
+      <Button title="Créer un compte" onPress={() => navigation.navigate('Register')} />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  linkText: {
-    color: '#007bff',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    marginTop: 10,
-  },
-});
-
 export default LoginScreen;
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#fff' },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 10, borderRadius: 5 }
+});

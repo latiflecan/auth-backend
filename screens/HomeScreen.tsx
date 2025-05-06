@@ -1,21 +1,13 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, Button, StyleSheet } from 'react-native';
 
-const HomeScreen = () => {
-  const navigation = useNavigation<any>();
-
-  const goToChat = () => {
-    navigation.navigate('Chat');
-  };
+const HomeScreen = ({ navigation, route }: any) => {
+  const user = route.params?.user;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bienvenue sur TiflowApp 🎉</Text>
-
-      <TouchableOpacity style={styles.button} onPress={goToChat}>
-        <Text style={styles.buttonText}>📨 Accéder au Chat</Text>
-      </TouchableOpacity>
+      <Text style={styles.welcome}>Bienvenue, {user || 'utilisateur'} !</Text>
+      <Button title="Accéder au chat" onPress={() => navigation.navigate('Chat', { user })} />
     </View>
   );
 };
@@ -23,28 +15,6 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 30,
-  },
-  button: {
-    backgroundColor: '#007bff',
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  welcome: { fontSize: 20, marginBottom: 20 }
 });

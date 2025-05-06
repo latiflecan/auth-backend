@@ -1,61 +1,22 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../App';
+import { View, TextInput, Button, Alert, StyleSheet } from 'react-native';
 
-const ForgotPasswordScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+const ForgotPasswordScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
 
-  const handleReset = async () => {
-    if (!email || !email.includes('@')) {
-      Alert.alert('Erreur', 'Veuillez entrer une adresse email valide.');
-      return;
-    }
-
-    try {
-      await sendPasswordResetEmail(auth, email.trim());
-      Alert.alert('Succès', 'Un lien de réinitialisation a été envoyé à votre adresse email.');
+  const handleReset = () => {
+    if (!email) {
+      Alert.alert('Erreur', 'Veuillez entrer votre email');
+    } else {
+      Alert.alert('Info', 'Lien de réinitialisation envoyé (simulation)');
       navigation.navigate('Login');
-    } catch (error: any) {
-      let message = 'Erreur inconnue.';
-      if (error.code === 'auth/user-not-found') {
-        message = "Aucun utilisateur trouvé avec cette adresse.";
-      }
-      Alert.alert('Erreur', message);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mot de passe oublié</Text>
-
-      <TextInput
-        placeholder="Votre adresse email"
-        placeholderTextColor="#888"
-        style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={handleReset}>
-        <Text style={styles.buttonText}>Réinitialiser</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.linkText}>Retour</Text>
-      </TouchableOpacity>
+      <TextInput style={styles.input} placeholder="Email" onChangeText={setEmail} value={email} />
+      <Button title="Réinitialiser le mot de passe" onPress={handleReset} />
     </View>
   );
 };
@@ -63,43 +24,6 @@ const ForgotPasswordScreen = () => {
 export default ForgotPasswordScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#000000',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
-    color: '#000',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: '#007bff',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  linkText: {
-    color: '#007bff',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    marginTop: 10,
-  },
+  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#fff' },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 10, borderRadius: 5 }
 });
